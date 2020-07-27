@@ -2,6 +2,7 @@ package com.example.myapp07;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Intent;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.os.Bundle;
@@ -20,20 +21,85 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 
+import android.os.Bundle;
+import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.speech.RecognizerIntent;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+import java.util.ArrayList;
+import java.util.Locale;
+
 public class MainActivity extends AppCompatActivity {
     Button playButton,stopButton;
+    //ボタン押下のデバック用
     TextView textView;
+
     private MediaPlayer mp;
     private MediaRecorder rec;
+
+//音声認識用
+    private static final int REQUEST_CODE = 1000;
+
+    private int lang ;
+
+//画面遷移用のクラス
+    private  ScreenActivity sc;
+
     /* 録音先のパス */
     static final String filePath = Environment.getExternalStorageDirectory() + "/sample.wav";
+    // the key constant
+    public static final String EXTRA_MESSAGE
+//            = "com.example.testactivitytrasdata.MESSAGE";
+            = "YourPackageName.MESSAGE";
 
+    private TextView scView;
+    static final int RESULT_SUBACTIVITY = 1000;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 //        指定したレイアウトxmlファイルと関連付け
         setContentView(R.layout.activity_main);
+
+//お㎜性認識　https://akira-watson.com/android/recognizerintent.html
+        // 言語選択 0:日本語、1:英語、2:オフライン、その他:General
+        lang = 0;
+
+        // 認識結果を表示させる
+        textView = (TextView)findViewById(R.id.textView);
+
+        final Button buttonStart = (Button)findViewById(R.id.recognizeButton);
+        buttonStart.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 音声認識を開始
+                buttonStart.setText("recognaize!!");
+                speech();
+            }
+        });
+
 //        IDから名前検索
+        scView = findViewById(R.id.recognaizeTextView);
+        scView.setText("MainActivity!!");
+
+        final TextView editText= findViewById(R.id.textView2);
+        Button button = findViewById(R.id.activityButton);
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                Intent intent = new Intent(getApplication(), SubScreenActivity.class);
+                if(editText.getText() != null){
+                    String str = editText.getText().toString();
+                    intent.putExtra(EXTRA_MESSAGE, str);
+                }
+                startActivityForResult( intent, RESULT_SUBACTIVITY );
+
+                // in order to clear the edittext
+                editText.setText("lalaland");
+            }
+        });
+
         playButton = findViewById(R.id.PlayButton);
         stopButton = findViewById(R.id.StopButton);
         textView = findViewById(R.id.textView);
@@ -58,6 +124,64 @@ public class MainActivity extends AppCompatActivity {
                 mediaRecoderStop();
             }
         });
+    }
+//音声認識
+    private void speech(){
+        // 音声認識の　Intent インスタンス
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+
+        if(lang == 0){
+            // 日本語
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.JAPAN.toString() );
+        }
+        else if(lang == 1){
+            // 英語
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.ENGLISH.toString() );
+        }
+        else if(lang == 2){
+            // Off line mode
+            intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
+        }
+        else{
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        }
+
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 100);
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "音声を入力");
+
+        try {
+            // インテント発行
+            startActivityForResult(intent, REQUEST_CODE);
+        }
+        catch (ActivityNotFoundException e) {
+            e.printStackTrace();
+            textView.setText(R.string.error);
+        }
+    }
+
+    protected void onActivityResult( int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+//        if(resultCode == RESULT_OK && requestCode == RESULT_SUBACTIVITY &&
+//                null != data/*intent*/) {
+//            String res = data/*intent*/.getStringExtra(ScreenActivity.EXTRA_MESSAGE);
+//            scView.setText(res);
+//        }
+//音声認識
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if(requestCode == REQUEST_CODE && resultCode == RESULT_OK) {
+            // 認識結果を ArrayList で取得
+            ArrayList<String> candidates =
+                    data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+
+            if(candidates.size() > 0) {
+                // 認識結果候補で一番有力なものを表示
+                textView.setText( candidates.get(0));
+            }
+        }
+
     }
 
     private void startRecord() {
@@ -129,6 +253,7 @@ public class MainActivity extends AppCompatActivity {
     }
     */
 //    https://techbooster.org/android/multimedia/2109/
+//    参考サイト
     MediaRecorder recorder;
     void mediarecoderStart(){
         recorder = new MediaRecorder();
@@ -141,8 +266,8 @@ public class MainActivity extends AppCompatActivity {
         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
         //外部ストレージの保存先
         String filePath = Environment.getExternalStorageDirectory() + "/audio.3gp";
-//        内部ストレージの保存先
-        filePath = Environment.getExternalStorageDirectory().getPath() + "/Audio/tomoaudio.3gp";
+//        内部ストレージの保存先(/Audioは端末のパスをみながら入力)
+        filePath = Environment.getExternalStorageDirectory().getPath() + "/tomoaudio.3gp";
         recorder.setOutputFile(filePath);
 //        strage/emulated/0/audio.3gp
         textView.setText("Rec2 Now");

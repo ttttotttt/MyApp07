@@ -2,4 +2,9 @@
     <string name="app_name">MyApp07</string>
     <string name="play_buttton">Play</string>
     <string name="stop_button">Stop</string>
+    <string name="defaltTextmessage">TextView</string>
+    <string name="activitybutton">ActivityButton</string>
+    <string name="recognizebutton">recognizeButton</string>
+<!--    音声認識-->
+    <string name="error">No Activity</string>
 </resources>
