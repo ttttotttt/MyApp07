@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MyApp07</string>
+    <string name="play_buttton">Play</string>
+    <string name="stop_button">Stop</string>
+</resources>
