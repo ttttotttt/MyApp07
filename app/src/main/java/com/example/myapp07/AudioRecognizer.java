@@ -1,5 +1,5 @@
-
-//https://akira-watson.com/android/recognizerintent.html
+//
+////https://akira-watson.com/android/recognizerintent.html
 //package com.example.myapp07;
 //
 //import android.os.Bundle;
@@ -15,32 +15,32 @@
 //
 //public class AudioRecognizer extends ScreenActivity{
 //    private static final int REQUEST_CODE = 1000;
-//    private TextView textView;
+////    private TextView textView;
 //
 //    private int lang ;
+//    TextView textView = (TextView) findViewById(R.id.textView);
+//    Button buttonStart = (Button) findViewById(R.id.recognizeButton);
+////    @Override
+////    protected void onCreate(Bundle savedInstanceState) {
+////        super.onCreate(savedInstanceState);
+////        setContentView(R.layout.activity_main);
 //
-//    @Override
-//    protected void onCreate(Bundle savedInstanceState) {
-//        super.onCreate(savedInstanceState);
-//        setContentView(R.layout.activity_main);
-//
+//    public static void AudioRecognizerClickListenern(final int language){
 //        // 言語選択 0:日本語、1:英語、2:オフライン、その他:General
-//        lang = 0;
-//
 //        // 認識結果を表示させる
-//        textView = (TextView)findViewById(R.id.textView);
 //
-//        Button buttonStart = (Button)findViewById(R.id.button_start);
+//
 //        buttonStart.setOnClickListener(new View.OnClickListener() {
 //            @Override
 //            public void onClick(View v) {
 //                // 音声認識を開始
-//                speech();
+//                buttonStart.setText("recognaize!!");
+//                speech(language);
 //            }
 //        });
 //    }
 //
-//    private void speech(){
+//    private static void speech(int lang){
 //        // 音声認識の　Intent インスタンス
 //        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
 //
@@ -76,7 +76,7 @@
 //
 //    // 結果を受け取るために onActivityResult を設置
 //    @Override
-//    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+//    protected static void onActivityResult(int requestCode, int resultCode, Intent data) {
 //        super.onActivityResult(requestCode, resultCode, data);
 //
 //        if(requestCode == REQUEST_CODE && resultCode == RESULT_OK) {

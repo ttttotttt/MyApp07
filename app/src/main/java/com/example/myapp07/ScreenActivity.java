@@ -16,6 +16,7 @@ public class ScreenActivity extends MainActivity {
 
     private TextView scView;
     static final int RESULT_SUBACTIVITY = 1000;
+
     ScreenActivity(){
 
     }

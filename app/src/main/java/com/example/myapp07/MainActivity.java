@@ -1,5 +1,5 @@
 package com.example.myapp07;
-//gittest
+
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
@@ -11,45 +11,33 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
-//1.とりあえずボタンで録音を開始すする
-//https://www.it-swarm-ja.tech/ja/android/android%ef%bc%9a%e3%82%b5%e3%82%a6%e3%83%b3%e3%83%89%e3%83%ac%e3%83%99%e3%83%ab%e3%82%92%e6%a4%9c%e5%87%ba%e3%81%99%e3%82%8b/1069885029/
-//ある瞬間の音を検知し，そこから5秒間の音声を録音する
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-
-import android.os.Bundle;
-import android.app.Activity;
 import android.content.ActivityNotFoundException;
-import android.content.Intent;
 import android.speech.RecognizerIntent;
-import android.view.View;
-import android.widget.Button;
-import android.widget.TextView;
+
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
     Button playButton,stopButton;
     //ボタン押下のデバック用
     TextView textView;
 
-    private MediaPlayer mp;
-    private MediaRecorder rec;
+    int filenameNum =0 ;
 
-//音声認識用
+    //タスクを実行するタイマー http://android-note.open-memo.net/sub/event__schedule_task_with_timer.html
+    Timer timer;
+
+
+    //音声認識用
     private static final int REQUEST_CODE = 1000;
 
     private int lang ;
 
-//画面遷移用のクラス
-    private  ScreenActivity sc;
-
-    /* 録音先のパス */
-    static final String filePath = Environment.getExternalStorageDirectory() + "/sample.wav";
     // the key constant
     public static final String EXTRA_MESSAGE
 //            = "com.example.testactivitytrasdata.MESSAGE";
@@ -103,29 +91,45 @@ public class MainActivity extends AppCompatActivity {
         playButton = findViewById(R.id.PlayButton);
         stopButton = findViewById(R.id.StopButton);
         textView = findViewById(R.id.textView);
-        mp = MediaPlayer.create(this, R.raw.bgm);
+
+        timer = new Timer();
+
         playButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // テキストを設定して表示
-                Log.d("button","click p");
+                Log.d("button","startTimer");
                 textView.setText("Click Play");
-//                startPlay();
-                mediarecoderStart();
-//                startRecord();
+                timer.scheduleAtFixedRate(
+                        new TimerTask()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                filenameNum+=1;
+                                Log.d("rec","recNow");
+                                mediarecoderStart(5000);
+                            }
+                        }, 10, 5900);
+                //10ミリ秒後に100ミリ秒間隔でタスク実行
             }
         });
+
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // テキストを設定して表示
                 textView.setText("Click Stop");
-//                stopRecord();
-                mediaRecoderStop();
+//                Log.d("button","timerStop");
+                Log.d("button","mplayer");
+                mediaPlayerStart();
+//                mediaRecoderStop();
+//                timer.cancel();
+//                timer = new Timer();
             }
         });
     }
-//音声認識
+    //音声認識
     private void speech(){
         // 音声認識の　Intent インスタンス
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -184,62 +188,17 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void startRecord() {
-        /* ファイルが存在する場合は削除 */
-        File wavFile = new File(filePath);
-        if (wavFile.exists()) {
-            wavFile.delete();
-        }
-        wavFile = null;
-        try {
-            rec = new MediaRecorder();
-            rec.setAudioSource(MediaRecorder.AudioSource.MIC);
-            rec.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
-            rec.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
-            rec.setOutputFile(filePath);
-
-            rec.prepare();
-            rec.start();
-            textView.setText("Rec Now");
-        } catch(Exception e){
-            e.printStackTrace();
-        }
-    }
-    //参考サイト    https://hack-le.com/androidrecplay/
-    // 再生 ちなみにエラーも何も出ずにunfortunity stop する　パスが合っていないのだろうか
-    private void startPlay() {
-        mp = MediaPlayer.create(this, R.raw.bgm);
-        try {
-            mp.prepare();
-            mp.start();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-
-    private void stopRecord() {
-        try {
-            rec.stop();
-            rec.reset();
-            rec.release();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
     /*
     protected void saveText(){
         String message = "";
         String fileName = filenameText.getText().toString();
         String inputText = contentText.getText().toString();
-
         try {
             FileOutputStream outStream = openFileOutput(fileName, MODE_PRIVATE);
             OutputStreamWriter writer = new OutputStreamWriter(outStream);
             writer.write(inputText);
             writer.flush();
             writer.close();
-
             message = "File saved.";
         } catch (FileNotFoundException e) {
             message = e.getMessage();
@@ -248,44 +207,71 @@ public class MainActivity extends AppCompatActivity {
             message = e.getMessage();
             e.printStackTrace();
         }
-
         Toast.makeText(getBaseContext(), message, Toast.LENGTH_LONG).show();
     }
     */
-//    https://techbooster.org/android/multimedia/2109/
-//    参考サイト
+    // 参考サイト https://techbooster.org/android/multimedia/2109/
+    //AndroidStudioDocuments https://developer.android.com/reference/android/media/MediaRecorder?hl=ja#getActiveMicrophones()
     MediaRecorder recorder;
-    void mediarecoderStart(){
+    void mediarecoderStart(int nMilliRec){
         recorder = new MediaRecorder();
 //        audioSourceにエラーが出たので（最初はMIC）
 //        https://developer.android.com/reference/android/media/MediaRecorder?hl=ja#setAudioSource(int)
 //        原因はアプリ側のパーミッションのせってい　
 //        https://teratail.com/questions/58057
         recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-        recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+        recorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
         //外部ストレージの保存先
-        String filePath = Environment.getExternalStorageDirectory() + "/audio.3gp";
+        String filePath;
+//        filePath= Environment.getExternalStorageDirectory() + "/audio.3gp";
 //        内部ストレージの保存先(/Audioは端末のパスをみながら入力)
-        filePath = Environment.getExternalStorageDirectory().getPath() + "/tomoaudio.3gp";
+        filePath = Environment.getExternalStorageDirectory().getPath() + "/tomoaudio"+filenameNum+".mp3";
         recorder.setOutputFile(filePath);
+        recorder.setMaxDuration(nMilliRec);
 //        strage/emulated/0/audio.3gp
-        textView.setText("Rec2 Now");
+
         //録音準備＆録音開始
         try {
             recorder.prepare();
+            recorder.start();
         } catch (Exception e) {
             e.printStackTrace();
+            mediaRecoderStop();
         }
-        recorder.start();   //録音
-        filePath = Environment.getExternalStorageDirectory()+ "/audio.3gp";
-        textView.setText(filePath);
     }
     void mediaRecoderStop(){
         recorder.stop();
         recorder.reset();   //オブジェクトのリセット
         //release()前であればsetAudioSourceメソッドを呼び出すことで再利用可能
         recorder.release(); //Recorderオブジェクトの解
+    }
+
+    //音の再生
+    //http://android-dev-talk.blogspot.com/2012/06/mediaplayerbgm.html
+    MediaPlayer mp = null;
+    void mediaPlayerStart(){
+        String filePath;
+//        filePath= Environment.getExternalStorageDirectory() + "/audio.3gp";
+//        内部ストレージの保存先(/Audioは端末のパスをみながら入力)
+        filePath = Environment.getExternalStorageDirectory().getPath() + "/tomoaudio"+2+".mp3";
+        mp = new MediaPlayer();
+        try {
+            mp.setDataSource(filePath);
+            mp.prepare();
+        } catch (IllegalArgumentException e) {
+        } catch (SecurityException e) {
+        } catch (IllegalStateException e) {
+        } catch (IOException e) {
+        }
+        mp.start();
+    }
+
+    //今日の日付と時刻を取得
+    private String getToday() {
+        Date date = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
+        return sdf.format(date);
     }
 
 }
