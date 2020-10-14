@@ -2,11 +2,8 @@ package com.example.myapp07;
 //Github連携https://po-what.com/link-github-androidstudio
 
 import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.ContentResolver;
 import android.content.Intent;
-
-import android.media.MediaCodec;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -92,23 +89,12 @@ public class MainActivity extends AppCompatActivity {
         final TextView editText= findViewById(R.id.textView2);
         Button button = findViewById(R.id.activityButton);
         //右のボタンの挙動
+        button.setText("mediaPlay");
         button.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Intent intent = new Intent(getApplication(), SubScreenActivity.class);
-                if(editText.getText() != null){
-                    String str = editText.getText().toString();
-                    intent.putExtra(EXTRA_MESSAGE, str);
-                }
-                //音声認識
-//                startSpeechRecognition();
-                startActivityForResult( intent, RESULT_SUBACTIVITY );
-
-                // in order to clear the edittext
-                editText.setText("lalaland");
+                mediaPlayerStart("AudioSource.mp3");
             }
         });
-
-
 
         textView = findViewById(R.id.textView);
         //録音開始ボタン
@@ -118,24 +104,20 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 // テキストを設定して表示
-                Log.d("button","Click start");
-                textView.setText("Click Play");
-                initAudioRecord();
-                audioRcordStart();
-//                mediarecoderStart(5000);
+                Log.d("button","Click to start");
+                textView.setText("Record Start");
                 //10ミリ秒後に5900ミリ秒間隔でタスク実行
-//                timer.scheduleAtFixedRate(
-//                        new TimerTask()
-//                        {
-//                            @Override
-//                            public void run()
-//                            {
-//                                filenameNum+=1;
-//                                Log.d("rec","recNow");
-//
-////                                mediarecoderStart(5000);
-//                            }
-//                        }, 10, 5900);
+                timer.scheduleAtFixedRate(
+                        new TimerTask()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                filenameNum+=1;
+                                Log.d("rec","recNow");
+                                mediarecoderStart(10000);
+                            }
+                        }, 10, 10900);
             }
         });
 
@@ -145,15 +127,15 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 // テキストを設定して表示
-                textView.setText("Click Stop");
                 Log.d("button","Click Stop");
-                audioRcordStop();
-//                mediaRecoderStop();
-//                timer.cancel();
-//                timer = new Timer();
+                textView.setText("Record Stop");
+                mediaRecoderStop();
+                timer.cancel();
+                timer = new Timer();
             }
         });
     }
+
     //音声認識
     private void speech(){
         // 音声認識の　Intent インスタンス
@@ -188,7 +170,6 @@ public class MainActivity extends AppCompatActivity {
             // インテント発行
             startActivityForResult(recognizIntent, REQUEST_CODE);
 //            startActivityForResult(intent, REQUEST_CODE);
-//            mediaPlayerStart();
         }
         catch (ActivityNotFoundException e) {
             e.printStackTrace();
@@ -198,14 +179,13 @@ public class MainActivity extends AppCompatActivity {
 
         protected void onActivityResult( int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        Log.d("url","intent?");
+        Log.d("recognaize","startRecognize");
 
 //        if(resultCode == RESULT_OK && requestCode == RESULT_SUBACTIVITY &&
 //                null != data/*intent*/) {
 //            String res = data/*intent*/.getStringExtra(ScreenActivity.EXTRA_MESSAGE);
 //            scView.setText(res);
 //        }
-
 
         // 音声認識
         super.onActivityResult(requestCode, resultCode, data);
@@ -217,11 +197,13 @@ public class MainActivity extends AppCompatActivity {
 
             if(candidates.size() > 0) {
                 // 認識結果候補で一番有力なものを表示
-                textView.setText( candidates.get(0));
+                textView.setText(candidates.get(0));
+                Log.d("recognaize", candidates.get(0));
             }
+
         }
 
-        //音声認識インテントからのオーディオの録音/保存
+        //音声認識インテントからのオーディオの録音/保存https://www.it-swarm-ja.tech/ja/android/%E9%9F%B3%E5%A3%B0%E8%AA%8D%E8%AD%98%E3%82%A4%E3%83%B3%E3%83%86%E3%83%B3%E3%83%88%E3%81%8B%E3%82%89%E3%81%AE%E3%82%AA%E3%83%BC%E3%83%87%E3%82%A3%E3%82%AA%E3%81%AE%E9%8C%B2%E9%9F%B3%E4%BF%9D%E5%AD%98/1046175013/
         // the resulting text is in the getExtras:
         Bundle bundle = data.getExtras();
         //マッチの中で一番の候補とか選べる部分
@@ -229,9 +211,7 @@ public class MainActivity extends AppCompatActivity {
         Log.d("url", matches.get(0));
         Bundle ams =data.getBundleExtra("Android.speech.extra.GET_AUDIO_FORMAT");
 //        Log.d("url", ams.getString("Android.speech.extra.GET_AUDIO_FORMAT"));
-//        Log.d("dataaction",data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS).get(0));
         // the recording url is in getData:
-
         try {
             Uri audioUri = data.getData();
                String stringuri;
@@ -243,48 +223,23 @@ public class MainActivity extends AppCompatActivity {
             Log.d("url", stringuri);
             ContentResolver contentResolver = getContentResolver();
             InputStream filestream = contentResolver.openInputStream(audioUri);
-        }catch (Exception e) {Log.d("url", "stringuri");
+        }catch (Exception e) {
             e.printStackTrace();
         }
-            textView.setText(R.string.error);
-
     }
-
-    /*
-    protected void saveText(){
-        String message = "";
-        String fileName = filenameText.getText().toString();
-        String inputText = contentText.getText().toString();
-        try {
-            FileOutputStream outStream = openFileOutput(fileName, MODE_PRIVATE);
-            OutputStreamWriter writer = new OutputStreamWriter(outStream);
-            writer.write(inputText);
-            writer.flush();
-            writer.close();
-            message = "File saved.";
-        } catch (FileNotFoundException e) {
-            message = e.getMessage();
-            e.printStackTrace();
-        } catch (IOException e) {
-            message = e.getMessage();
-            e.printStackTrace();
-        }
-        Toast.makeText(getBaseContext(), message, Toast.LENGTH_LONG).show();
-    }
-    */
 
     //音の録音 https://techbooster.org/android/multimedia/2109/
     //AndroidStudioDocuments https://developer.android.com/reference/android/media/MediaRecorder?hl=ja#getActiveMicrophones()
-    MediaRecorder recorder=null,recorder2=null;
+    MediaRecorder recorder=null;
     void mediarecoderStart(int nMilliRec){
         recorder = new MediaRecorder();
 //        String h = mediaDevices.enumerateDevices();
-//        audioSourceにエラーが出たので（最初はMIC）
-//        https://developer.android.com/reference/android/media/MediaRecorder?hl=ja#setAudioSource(int)
-//        原因はアプリ側のパーミッションのせってい
-//        https://teratail.com/questions/58057
+        // audioSourceにエラーが出たので（最初はMIC）
+        // https://developer.android.com/reference/android/media/MediaRecorder?hl=ja#setAudioSource(int)
+        // 原因はアプリ側のパーミッションのせってい
+        // https://teratail.com/questions/58057
         //AudioSource https://developer.android.com/reference/android/media/MediaRecorder.AudioSource?hl=ja#VOICE_RECOGNITION
-        recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION);
+        recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
 //        VOICE_RECOGNITION)
         recorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
@@ -292,11 +247,12 @@ public class MainActivity extends AppCompatActivity {
         String filePath;
 //        filePath= Environment.getExternalStorageDirectory() + "/audio.3gp";
 //        内部ストレージの保存先(/Audioは端末のパスをみながら入力)
-        filePath = Environment.getExternalStorageDirectory().getPath() + "/tomoaudio"+filenameNum+".mp3";
+        filePath = Environment.getExternalStorageDirectory().getPath() + "/tomo"+getToday()+"_"+filenameNum+".wav";
 //        filePath = Environment.getExternalStorageDirectory().getPath() + "/konchiwa.mp3";
+//        filePath = Environment.getExternalStorageDirectory().getPath() + "/AudioSource.mp3";
         recorder.setOutputFile(filePath);
         recorder.setMaxDuration(nMilliRec);
-        recorder.setAudioChannels(2);
+        recorder.setAudioChannels(1);
 
         //マイクの設定？https://developer.android.com/reference/android/media/MediaRecorder?hl=ja#setPreferredMicrophoneDirection(int)
 //        recorder.setPreferredMicrophoneDirection(3);
@@ -325,11 +281,11 @@ public class MainActivity extends AppCompatActivity {
 
     //音の再生 http://android-dev-talk.blogspot.com/2012/06/mediaplayerbgm.html
     MediaPlayer mp = null;
-    void mediaPlayerStart(){
+    void mediaPlayerStart(String FILE_NAME){
         String filePath;
 //        filePath= Environment.getExternalStorageDirectory() + "/audio.3gp";
 //        内部ストレージの保存先(/Audioは端末のパスをみながら入力)
-        filePath = Environment.getExternalStorageDirectory().getPath() + "/konchiwa.mp3";
+        filePath = Environment.getExternalStorageDirectory().getPath() + "/"+FILE_NAME;
         mp = new MediaPlayer();
         try {
             mp.setDataSource(filePath);
@@ -338,6 +294,7 @@ public class MainActivity extends AppCompatActivity {
         } catch (SecurityException e) {
         } catch (IllegalStateException e) {
         } catch (IOException e) {
+            textView.setText("Can't Play Sound");
         }
         mp.start();
     }
@@ -443,7 +400,9 @@ public class MainActivity extends AppCompatActivity {
     //今日の日付と時刻を取得
     private String getToday() {
         Date date = new Date();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
+        SimpleDateFormat sdf;
+//        sdf = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
+        sdf = new SimpleDateFormat("MMdd", Locale.getDefault());
         return sdf.format(date);
     }
 
