@@ -38,14 +38,14 @@ public class WaveFile {
         try	{
             recFile.createNewFile();
         }	catch	(IOException	e)	{
-            //TOD	Auto-generated	catch	block
+            //	TODO	Auto-generated	catch	block
             e.printStackTrace();
         }
 
         try	{
             raf	=	new	RandomAccessFile(recFile,	"rw");
         }	catch	(FileNotFoundException	e)	{
-            //	TOD	Auto-generated	catch	block
+            //	TODO	Auto-generated	catch	block
             e.printStackTrace();
         }
 
