@@ -110,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
                 // テキストを設定して表示
                 Log.d("button","Click to start");
                 textView.setText("Record Start");
-                initAudioRecord();
+                initAudioRecord(44100);
                 audioRcordStart();
                 //10ミリ秒後に5900ミリ秒間隔でタスク実行
 //                timer.scheduleAtFixedRate(
@@ -231,7 +231,7 @@ public class MainActivity extends AppCompatActivity {
             outputStream = new FileOutputStream(new File(filePath));
             dos = new DataOutputStream(new FileOutputStream(filePath));
             int read = 0;
-            initAudioRecord();
+            initAudioRecord(8000);
             byte[] readdata = new byte[bufSize/2];
             dos.write(readdata);
             while((read = filestream.read(readdata)) !=-1 ){
@@ -316,11 +316,11 @@ public class MainActivity extends AppCompatActivity {
     //音の録音
     AudioRecord ar;
     boolean bIsRecording = true;
-    int samplingRate,frameRate,oneFrameDataCount,oneFrameSizeInByte,audioBufferSizeInByte,bufSize;
+    int frameRate,oneFrameDataCount,oneFrameSizeInByte,audioBufferSizeInByte,bufSize;
     private WaveFile wav = new WaveFile();
     private short[] shortData,shortDataCam;
     //http://steavevaivai.hatenablog.com/entry/2015/01/03/225505
-    void initAudioRecord(){
+    void initAudioRecord(int samplingRate){
         String filePath;
         filePath = Environment.getExternalStorageDirectory().getPath() + "/wabMic.wav";
         wav.createFile(filePath);
@@ -328,7 +328,7 @@ public class MainActivity extends AppCompatActivity {
         // 全デバイスサポート保障は44100のみ
 //        samplingRate = 44100;
         //サンプルレート8000Hz(AMR) or 16000Hz(AMR_WB?)
-        samplingRate = 8000;
+//        samplingRate = 8000;
 
 
         // AudioRecordオブジェクトを作成
