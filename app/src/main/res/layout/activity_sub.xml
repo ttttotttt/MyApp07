@@ -8,6 +8,10 @@
 
 
     <!-- included_layout.xml を読み込む -->
-    <include layout="@layout/activity_main" android:id="@+id/include_views_1"/>
+    <include
+        android:id="@+id/include_views_1"
+        layout="@layout/activity_main"
+        tools:layout_editor_absoluteX="0dp"
+        tools:layout_editor_absoluteY="0dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

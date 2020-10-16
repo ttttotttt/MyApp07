@@ -14,8 +14,13 @@ import android.widget.TextView;
 import android.content.ActivityNotFoundException;
 import android.speech.RecognizerIntent;
 
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,7 +68,6 @@ public class MainActivity extends AppCompatActivity {
         //指定したレイアウトxmlファイルと関連付け（呪文）
         setContentView(R.layout.activity_main);
 
-
         //音声認識試し　https://akira-watson.com/android/recognizerintent.html
         // 言語選択 0:日本語、1:英語、2:オフライン、その他:General
         lang = 0;
@@ -106,18 +110,20 @@ public class MainActivity extends AppCompatActivity {
                 // テキストを設定して表示
                 Log.d("button","Click to start");
                 textView.setText("Record Start");
+                initAudioRecord();
+                audioRcordStart();
                 //10ミリ秒後に5900ミリ秒間隔でタスク実行
-                timer.scheduleAtFixedRate(
-                        new TimerTask()
-                        {
-                            @Override
-                            public void run()
-                            {
-                                filenameNum+=1;
-                                Log.d("rec","recNow");
-                                mediarecoderStart(10000);
-                            }
-                        }, 10, 10900);
+//                timer.scheduleAtFixedRate(
+//                        new TimerTask()
+//                        {
+//                            @Override
+//                            public void run()
+//                            {
+//                                filenameNum+=1;
+//                                Log.d("rec","recNow");
+//                                mediarecoderStart(10000);
+//                            }
+//                        }, 10, 10900);
             }
         });
 
@@ -129,9 +135,10 @@ public class MainActivity extends AppCompatActivity {
                 // テキストを設定して表示
                 Log.d("button","Click Stop");
                 textView.setText("Record Stop");
-                mediaRecoderStop();
-                timer.cancel();
-                timer = new Timer();
+                audioRcordStop();
+//                mediaRecoderStop();
+//                timer.cancel();
+//                timer = new Timer();
             }
         });
     }
@@ -140,6 +147,7 @@ public class MainActivity extends AppCompatActivity {
     private void speech(){
         // 音声認識の　Intent インスタンス
         Intent recognizIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+//        Intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
 
         if(lang == 0){
             // 日本語
@@ -163,8 +171,9 @@ public class MainActivity extends AppCompatActivity {
 
         //音声認識インテントからのオーディオの録音/保存 https://www.it-swarm-ja.tech/ja/android/%E9%9F%B3%E5%A3%B0%E8%AA%8D%E8%AD%98%E3%82%A4%E3%83%B3%E3%83%86%E3%83%B3%E3%83%88%E3%81%8B%E3%82%89%E3%81%AE%E3%82%AA%E3%83%BC%E3%83%87%E3%82%A3%E3%82%AA%E3%81%AE%E9%8C%B2%E9%9F%B3%E4%BF%9D%E5%AD%98/1046175013/
         // secret parameters that when added provide audio url in the result
-        recognizIntent.putExtra("Android.speech.extra.GET_AUDIO_FORMAT", "audio/AMR");
-        recognizIntent.putExtra("Android.speech.extra.GET_AUDIO", true);
+        recognizIntent.putExtra("android.speech.extra.GET_AUDIO_FORMAT", "audio/AMR");
+        String  de = RecognizerIntent.EXTRA_ORIGIN;
+                recognizIntent.putExtra("android.speech.extra.GET_AUDIO", true);
 
         try {
             // インテント発行
@@ -206,23 +215,28 @@ public class MainActivity extends AppCompatActivity {
         //音声認識インテントからのオーディオの録音/保存https://www.it-swarm-ja.tech/ja/android/%E9%9F%B3%E5%A3%B0%E8%AA%8D%E8%AD%98%E3%82%A4%E3%83%B3%E3%83%86%E3%83%B3%E3%83%88%E3%81%8B%E3%82%89%E3%81%AE%E3%82%AA%E3%83%BC%E3%83%87%E3%82%A3%E3%82%AA%E3%81%AE%E9%8C%B2%E9%9F%B3%E4%BF%9D%E5%AD%98/1046175013/
         // the resulting text is in the getExtras:
         Bundle bundle = data.getExtras();
-        //マッチの中で一番の候補とか選べる部分
         ArrayList<String> matches = bundle.getStringArrayList(RecognizerIntent.EXTRA_RESULTS);
-        Log.d("url", matches.get(0));
+        //認識候補の中から一番信頼度の高いものをピックアップ
         Bundle ams =data.getBundleExtra("Android.speech.extra.GET_AUDIO_FORMAT");
-//        Log.d("url", ams.getString("Android.speech.extra.GET_AUDIO_FORMAT"));
-        // the recording url is in getData:
+        // the recording url is in getData
+        Uri audioUri = data.getData();
+        ContentResolver contentResolver = getContentResolver();
+        InputStream filestream = null;
+        OutputStream outputStream = null;
+        DataOutputStream dos = null;
         try {
-            Uri audioUri = data.getData();
-               String stringuri;
-            if (audioUri == null) {
-                stringuri = "uri=null";
-            } else {
-                stringuri = audioUri.toString();
+            filestream = contentResolver.openInputStream(audioUri);
+            String filePath;
+            filePath = Environment.getExternalStorageDirectory().getPath() + "/wAmr.wav";
+            outputStream = new FileOutputStream(new File(filePath));
+            dos = new DataOutputStream(new FileOutputStream(filePath));
+            int read = 0;
+            initAudioRecord();
+            byte[] readdata = new byte[bufSize/2];
+            dos.write(readdata);
+            while((read = filestream.read(readdata)) !=-1 ){
+                outputStream.write(readdata,0,read);
             }
-            Log.d("url", stringuri);
-            ContentResolver contentResolver = getContentResolver();
-            InputStream filestream = contentResolver.openInputStream(audioUri);
         }catch (Exception e) {
             e.printStackTrace();
         }
@@ -312,7 +326,10 @@ public class MainActivity extends AppCompatActivity {
         wav.createFile(filePath);
         // サンプリングレート (Hz)
         // 全デバイスサポート保障は44100のみ
-        samplingRate = 44100;
+//        samplingRate = 44100;
+        //サンプルレート8000Hz(AMR) or 16000Hz(AMR_WB?)
+        samplingRate = 8000;
+
 
         // AudioRecordオブジェクトを作成
         bufSize = android.media.AudioRecord.getMinBufferSize(samplingRate,
@@ -335,7 +352,7 @@ public class MainActivity extends AppCompatActivity {
             // フレームごとの処理
             @Override
             public void onPeriodicNotification(AudioRecord recorder) {
-                // TODO Auto-generated method stub
+                // TOD Auto-generated method stub
                 ar.read(shortData, 0, bufSize/2); // 読み込む
                 Log.d("AudioRecord", "read " + shortData.length + " bytes");;
                 wav.addBigEndianData(shortData); // ファイルに書き出す
@@ -343,7 +360,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onMarkerReached(AudioRecord recorder) {
-                // TODO Auto-generated method stub
+                // TOD Auto-generated method stub
             }
         });
         // コールバックが呼ばれる間隔を指定
