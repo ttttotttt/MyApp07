@@ -37,7 +37,7 @@ public class ScreenActivity extends MainActivity {
                     String str = editText.getText().toString();
                     intent.putExtra(EXTRA_MESSAGE, str);
                 }
-                startActivityForResult( intent, RESULT_SUBACTIVITY );
+                startActivityForResult(intent, RESULT_SUBACTIVITY );
 
                 // in order to clear the edittext
                 editText.setText("lalaland");

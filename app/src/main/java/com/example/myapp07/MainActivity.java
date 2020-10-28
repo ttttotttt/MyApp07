@@ -7,12 +7,15 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.speech.RecognitionListener;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.content.ActivityNotFoundException;
 import android.speech.RecognizerIntent;
+import 	android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
 
 import java.io.DataOutputStream;
 import java.io.File;
@@ -41,6 +44,9 @@ import android.media.MediaMuxer;
 import android.media.MediaMuxer.OutputFormat;
 import android.media.MediaFormat;
 
+import static android.speech.RecognizerIntent.RESULT_NO_MATCH;
+import static android.speech.RecognizerIntent.getVoiceDetailsIntent;
+import static android.speech.SpeechRecognizer.ERROR_NO_MATCH;
 import static java.lang.Math.max;
 
 public class MainActivity extends AppCompatActivity {
@@ -56,33 +62,43 @@ public class MainActivity extends AppCompatActivity {
     //音声認識用
     private static final int REQUEST_CODE = 1000;
     private int lang ;
+    private Intent recognizIntent;
+    private boolean recognizeActive;
+    private SpeechRecognizer speechRecognizer;
+    private String ss;
     // the key constant
     public static final String EXTRA_MESSAGE
 //            = "com.example.testactivitytrasdata.MESSAGE";
             = "YourPackageName.MESSAGE";
 
     static final int RESULT_SUBACTIVITY = 1000;
+
+    private TextToSpeech tts;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         //指定したレイアウトxmlファイルと関連付け（呪文）
         setContentView(R.layout.activity_main);
+        ss = getLocalClassName();
 
-        //音声認識試し　https://akira-watson.com/android/recognizerintent.html
-        // 言語選択 0:日本語、1:英語、2:オフライン、その他:General
-        lang = 0;
+        initSpeech();
 
         // 認識結果を表示させる
         textView = (TextView)findViewById(R.id.textView);
 
         final Button buttonStart = (Button)findViewById(R.id.recognizeButton);
+
+        startSpeech();
         //左のボタンの挙動
         buttonStart.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 // 音声認識を開始
                 buttonStart.setText("recognaize!!");
-                speech();
+
+                startSpeech();
             }
         });
 
@@ -93,6 +109,7 @@ public class MainActivity extends AppCompatActivity {
         final TextView editText= findViewById(R.id.textView2);
         Button button = findViewById(R.id.activityButton);
         //右のボタンの挙動
+
         button.setText("mediaPlay");
         button.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -110,20 +127,20 @@ public class MainActivity extends AppCompatActivity {
                 // テキストを設定して表示
                 Log.d("button","Click to start");
                 textView.setText("Record Start");
-                initAudioRecord(44100);
-                audioRcordStart();
+//                initAudioRecord(44100);
+//                audioRcordStart();
                 //10ミリ秒後に5900ミリ秒間隔でタスク実行
-//                timer.scheduleAtFixedRate(
-//                        new TimerTask()
-//                        {
-//                            @Override
-//                            public void run()
-//                            {
-//                                filenameNum+=1;
-//                                Log.d("rec","recNow");
-//                                mediarecoderStart(10000);
-//                            }
-//                        }, 10, 10900);
+                timer.scheduleAtFixedRate(
+                        new TimerTask()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                filenameNum+=1;
+                                Log.d("rec","recNow");
+                                mediarecoderStart(10000);
+                            }
+                        }, 10, 10900);
             }
         });
 
@@ -143,103 +160,200 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    //音声認識
-    private void speech(){
-        // 音声認識の　Intent インスタンス
-        Intent recognizIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-//        Intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+    //https://developer.android.com/reference/android/app/Activity#onResume()
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if(recognizeActive) { startSpeech(); }
+    }
 
+    private void initSpeech(){
+
+        //音声認識試し　https://akira-watson.com/android/recognizerintent.html
+        // 言語選択 0:日本語、1:英語、2:オフライン、その他:General
+        lang = 0;
+
+        // 音声認識の　Intent インスタンス
+        recognizIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+
+        //putExtra 言語設定
         if(lang == 0){
             // 日本語
             recognizIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.JAPAN.toString() );
-        }
-        else if(lang == 1){
+        } else if(lang == 1){
             // 英語
             recognizIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.ENGLISH.toString() );
-        }
-        else if(lang == 2){
+        } else if(lang == 2){
+            recognizIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             // Off line mode
             recognizIntent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
+        } else{
+            recognizIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         }
-        else{
-            recognizIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        }
-
-        recognizIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 100);
+        //
+        recognizIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1000);
         recognizIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "音声を入力");
+        //ユーザーのスピーチに応答してWeb検索のみを実行するかどうかを示します。
+        recognizIntent.putExtra(RecognizerIntent.EXTRA_WEB_SEARCH_ONLY, false);
+//        recognizIntent.putExtra(RecognizerIntent.RESULT_AUDIO_ERROR,1);
+
+        recognizIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
 
         //音声認識インテントからのオーディオの録音/保存 https://www.it-swarm-ja.tech/ja/android/%E9%9F%B3%E5%A3%B0%E8%AA%8D%E8%AD%98%E3%82%A4%E3%83%B3%E3%83%86%E3%83%B3%E3%83%88%E3%81%8B%E3%82%89%E3%81%AE%E3%82%AA%E3%83%BC%E3%83%87%E3%82%A3%E3%82%AA%E3%81%AE%E9%8C%B2%E9%9F%B3%E4%BF%9D%E5%AD%98/1046175013/
         // secret parameters that when added provide audio url in the result
         recognizIntent.putExtra("android.speech.extra.GET_AUDIO_FORMAT", "audio/AMR");
-        String  de = RecognizerIntent.EXTRA_ORIGIN;
-                recognizIntent.putExtra("android.speech.extra.GET_AUDIO", true);
+        recognizIntent.putExtra("android.speech.extra.GET_AUDIO", true);
+
+    }
+
+    //音声認識
+    private void startSpeech(){
+        timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() { if(recognizeActive) { startSpeech(); }
 
         try {
-            // インテント発行
             startActivityForResult(recognizIntent, REQUEST_CODE);
-//            startActivityForResult(intent, REQUEST_CODE);
-        }
-        catch (ActivityNotFoundException e) {
+            //SpeechRecognizerを使う音声認識
+//            speechRecognizer();
+            recognizeActive = true;
+        } catch (ActivityNotFoundException e) {
             e.printStackTrace();
             textView.setText(R.string.error);
         }
+            }
+        }, 10, 5000);
+
     }
 
-        protected void onActivityResult( int requestCode, int resultCode, Intent data) {
+    //SpeechRecognizerを使う音声認識
+    public void speechRecognizer(){
+        SpeechRecognizer recognizer= SpeechRecognizer.createSpeechRecognizer(this);
+        recognizer.setRecognitionListener(new RecognitionListener() {
+
+            // ユーザーの話を聞く準備ができた時に呼ばれる
+            public void	onReadyForSpeech(Bundle params) {
+                // onResultsが2回呼ばれる不具合の対応
+                recognizeActive = true;
+            }
+
+            // 認識結果の取得時に呼ばれる
+            public void	onResults(Bundle results) {
+                // onResultsが2回呼ばれる不具合の対応
+                if (!recognizeActive) return;
+                // 認識テキストの取得
+                List<String> recData = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                textView.setText(recData.get(0));
+                if (recData.size() > 0) {
+//                        AddText(recData.get(0));
+                }
+                //テキストデータのセーブ
+//                    saveFile("save.txt",recData.get(0)+","+getToday()+"\n");
+//                    Log.d("saveText",readFile("save.txt"));
+
+                //音声認識
+                recognizeActive = false;
+                startSpeech();
+            }
+
+            public void	onError(int error) {// ネットワークエラーか認識エラーが起きた時に呼ばれる
+                // エラー表示
+//                    AddText(error2str(error));
+                // スリープ（これがないと次の音声認識に失敗することがある）
+                try {
+                    //次の認識ニ移るまでの秒数
+                    Thread.sleep(500);
+//                    Log.d("button","click cc");
+                } catch (Exception e) {
+//                    Thread.sleep(299);
+                }
+//                 音声認識
+                recognizeActive = false;
+                startSpeech();
+            }
+
+            // その他
+            public void	onBeginningOfSpeech() {}    // 話し始めたときに呼ばれる
+            public void	onEndOfSpeech() {}          // 話し終わった時に呼ばれる
+            public void	onBufferReceived(byte[] buffer) {}  // 結果に対する反応などで追加の音声が来たとき呼ばれる しかし呼ばれる保証はないらしい
+            public void	onPartialResults(Bundle results) {} // 部分的な認識結果が利用出来るときに呼ばれる // 利用するにはインテントでEXTRA_PARTIAL_RESULTSを指定する必要がある
+            public void	onRmsChanged(float rmsdB) {}    // サウンドレベルが変わったときに呼ばれる// 呼ばれる保証はない
+            public void	onEvent(int eventType, Bundle params) {}    // 将来の使用のために予約されている
+        });
+//        startActivityForResult();
+        recognizer.startListening(recognizIntent);
+    }
+
+    //音声認識が終わると自動で呼び出されるメソッド
+    @Override
+    protected void onActivityResult( int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        Log.d("recognaize","startRecognize");
-
-//        if(resultCode == RESULT_OK && requestCode == RESULT_SUBACTIVITY &&
-//                null != data/*intent*/) {
-//            String res = data/*intent*/.getStringExtra(ScreenActivity.EXTRA_MESSAGE);
-//            scView.setText(res);
-//        }
-
+        Log.d("recognaize","startRecognize1");
         // 音声認識
         super.onActivityResult(requestCode, resultCode, data);
 
         if(requestCode == REQUEST_CODE && resultCode == RESULT_OK) {
+            Log.d("recognaize","startRecognize3");
             // 認識結果を ArrayList で取得
             ArrayList<String> candidates =
                     data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            if (!candidates.isEmpty()) {
+                for (String match : candidates) {
+                }
+                //Result code for various error.
+            } else if(resultCode == RecognizerIntent.RESULT_AUDIO_ERROR){
+                Log.i("req", "RESULT_SERVER_ERROR");
+            } else if(resultCode == RecognizerIntent.RESULT_CLIENT_ERROR){
+                Log.i("req", "RESULT_SERVER_ERROR");
+            } else if(resultCode == RecognizerIntent.RESULT_NETWORK_ERROR){
+                Log.i("req", "RESULT_SERVER_ERROR");
+            } else if(resultCode == RecognizerIntent.RESULT_NO_MATCH){
+                Log.i("req","RESULT_SERVER_ERROR");
+            } else if(resultCode == RecognizerIntent.RESULT_SERVER_ERROR){
+                Log.i("req", "RESULT_SERVER_ERROR");
+            }
 
+            int a = data.getFlags();
             if(candidates.size() > 0) {
                 // 認識結果候補で一番有力なものを表示
                 textView.setText(candidates.get(0));
                 Log.d("recognaize", candidates.get(0));
+                //音声認識インテントからのオーディオの録音/保存https://www.it-swarm-ja.tech/ja/android/%E9%9F%B3%E5%A3%B0%E8%AA%8D%E8%AD%98%E3%82%A4%E3%83%B3%E3%83%86%E3%83%B3%E3%83%88%E3%81%8B%E3%82%89%E3%81%AE%E3%82%AA%E3%83%BC%E3%83%87%E3%82%A3%E3%82%AA%E3%81%AE%E9%8C%B2%E9%9F%B3%E4%BF%9D%E5%AD%98/1046175013/
+                // the resulting text is in the getExtras:
+                Bundle bundle = data.getExtras();
+                ArrayList<String> matches = bundle.getStringArrayList(RecognizerIntent.EXTRA_RESULTS);
+                //認識候補の中から一番信頼度の高いものをピックアップ
+                Bundle ams =data.getBundleExtra("Android.speech.extra.GET_AUDIO_FORMAT");
+                // the recording url is in getData
+                Uri audioUri = data.getData();
+                ContentResolver contentResolver = getContentResolver();
+                InputStream filestream = null;
+                OutputStream outputStream = null;
+                DataOutputStream dos = null;
+                try {
+                    filestream = contentResolver.openInputStream(audioUri);
+                    String filePath;
+                    filePath = Environment.getExternalStorageDirectory().getPath() + "/wAmr"+getToday()+".amr";
+                    outputStream = new FileOutputStream(new File(filePath));
+                    dos = new DataOutputStream(new FileOutputStream(filePath));
+                    int read = 0;
+                    initAudioRecord(8000);
+                    byte[] readdata = new byte[bufSize/2];
+                    dos.write(readdata);
+                    while((read = filestream.read(readdata)) !=-1 ){
+                        outputStream.write(readdata,0,read);
+                    }
+                }catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }else{
+                Log.d("recognaize", "miss the recognize");
+                startSpeech();
             }
-
         }
-
-        //音声認識インテントからのオーディオの録音/保存https://www.it-swarm-ja.tech/ja/android/%E9%9F%B3%E5%A3%B0%E8%AA%8D%E8%AD%98%E3%82%A4%E3%83%B3%E3%83%86%E3%83%B3%E3%83%88%E3%81%8B%E3%82%89%E3%81%AE%E3%82%AA%E3%83%BC%E3%83%87%E3%82%A3%E3%82%AA%E3%81%AE%E9%8C%B2%E9%9F%B3%E4%BF%9D%E5%AD%98/1046175013/
-        // the resulting text is in the getExtras:
-        Bundle bundle = data.getExtras();
-        ArrayList<String> matches = bundle.getStringArrayList(RecognizerIntent.EXTRA_RESULTS);
-        //認識候補の中から一番信頼度の高いものをピックアップ
-        Bundle ams =data.getBundleExtra("Android.speech.extra.GET_AUDIO_FORMAT");
-        // the recording url is in getData
-        Uri audioUri = data.getData();
-        ContentResolver contentResolver = getContentResolver();
-        InputStream filestream = null;
-        OutputStream outputStream = null;
-        DataOutputStream dos = null;
-        try {
-            filestream = contentResolver.openInputStream(audioUri);
-            String filePath;
-            filePath = Environment.getExternalStorageDirectory().getPath() + "/wAmr.wav";
-            outputStream = new FileOutputStream(new File(filePath));
-            dos = new DataOutputStream(new FileOutputStream(filePath));
-            int read = 0;
-            initAudioRecord(8000);
-            byte[] readdata = new byte[bufSize/2];
-            dos.write(readdata);
-            while((read = filestream.read(readdata)) !=-1 ){
-                outputStream.write(readdata,0,read);
-            }
-        }catch (Exception e) {
-            e.printStackTrace();
-        }
+        Log.d("recognaize","req"+requestCode);
+        Log.d("recognaize","res"+resultCode);
     }
 
     //音の録音 https://techbooster.org/android/multimedia/2109/
